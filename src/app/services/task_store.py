@@ -16,13 +16,33 @@ class TaskStore:
     def __init__(self) -> None:
         self._tasks: dict[str, TaskResponse] = {}
 
-    def list_tasks(self, status: TaskStatus | None = None) -> list[TaskResponse]:
-        """Return all tasks, optionally filtered by status."""
+    def list_tasks(
+        self,
+        status: TaskStatus | None = None,
+        query: str | None = None,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[TaskResponse], int]:
+        """Return paginated tasks, optionally filtered by status and title search."""
         tasks: list[TaskResponse] = list(self._tasks.values())
         if status is not None:
             tasks = [t for t in tasks if t.status == status]
-        logger.info("Listed %d task(s) (filter=%s)", len(tasks), status)
-        return tasks
+        if query:
+            normalized_query = query.lower()
+            tasks = [t for t in tasks if normalized_query in t.title.lower()]
+
+        total = len(tasks)
+        paginated_tasks = tasks[skip : skip + limit]
+        logger.info(
+            "Listed %d task(s) (total=%d, filter=%s, query=%s, skip=%d, limit=%d)",
+            len(paginated_tasks),
+            total,
+            status,
+            query,
+            skip,
+            limit,
+        )
+        return paginated_tasks, total
 
     def create_task(self, payload: TaskCreate) -> TaskResponse:
         """Create and store a new task."""
