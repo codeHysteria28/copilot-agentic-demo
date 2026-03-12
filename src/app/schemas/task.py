@@ -32,3 +32,12 @@ class TaskResponse(BaseModel):
     status: TaskStatus
     created_at: datetime
     updated_at: datetime
+
+
+class TaskListResponse(BaseModel):
+    """Paginated schema returned for task listings."""
+
+    items: list[TaskResponse]
+    total: int
+    skip: int
+    limit: int

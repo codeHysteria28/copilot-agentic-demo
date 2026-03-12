@@ -67,22 +67,26 @@ async def test_create_task_invalid_payload(
 
 
 async def test_list_tasks_empty(client: httpx.AsyncClient) -> None:
-    """Listing tasks when none exist returns an empty list."""
+    """Listing tasks when none exist returns an empty paginated payload."""
     response = await client.get("/tasks")
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"items": [], "total": 0, "skip": 0, "limit": 20}
 
 
 async def test_list_tasks(client: httpx.AsyncClient) -> None:
-    """Listing tasks returns all created tasks."""
+    """Listing tasks returns paginated items with total count."""
     await client.post("/tasks", json={"title": "A"})
     await client.post("/tasks", json={"title": "B"})
 
     response = await client.get("/tasks")
+    body = response.json()
 
     assert response.status_code == 200
-    assert len(response.json()) == 2
+    assert body["total"] == 2
+    assert body["skip"] == 0
+    assert body["limit"] == 20
+    assert len(body["items"]) == 2
 
 
 async def test_list_tasks_filter_by_status(
@@ -97,10 +101,48 @@ async def test_list_tasks_filter_by_status(
 
     response = await client.get("/tasks", params={"status_filter": "done"})
 
-    tasks = response.json()
+    body = response.json()
     assert response.status_code == 200
-    assert len(tasks) == 1
-    assert tasks[0]["title"] == "Done task"
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+    assert body["items"][0]["title"] == "Done task"
+
+
+async def test_list_tasks_search_by_title(client: httpx.AsyncClient) -> None:
+    """Search is case-insensitive and matches task title substrings."""
+    await client.post("/tasks", json={"title": "Deploy backend"})
+    await client.post("/tasks", json={"title": "Write docs"})
+    await client.post("/tasks", json={"title": "Re-DEPLOY web app"})
+
+    response = await client.get("/tasks", params={"q": "deploy"})
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["total"] == 2
+    assert len(body["items"]) == 2
+
+
+async def test_list_tasks_pagination(client: httpx.AsyncClient) -> None:
+    """Pagination returns the requested slice and full filtered total."""
+    for task_number in range(10):
+        await client.post("/tasks", json={"title": f"Task {task_number}"})
+
+    response = await client.get("/tasks", params={"skip": 0, "limit": 5})
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["total"] == 10
+    assert body["skip"] == 0
+    assert body["limit"] == 5
+    assert len(body["items"]) == 5
+    assert body["items"][0]["title"] == "Task 0"
+
+
+async def test_list_tasks_limit_validation(client: httpx.AsyncClient) -> None:
+    """Limit values over 100 are rejected."""
+    response = await client.get("/tasks", params={"limit": 200})
+
+    assert response.status_code == 422
 
 
 # -- GET /tasks/{id} --

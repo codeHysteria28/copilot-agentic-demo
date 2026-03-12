@@ -3,11 +3,16 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from src.app.dependencies import get_task_store
 from src.app.models.task import TaskStatus
-from src.app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
+from src.app.schemas.task import (
+    TaskCreate,
+    TaskListResponse,
+    TaskResponse,
+    TaskUpdate,
+)
 from src.app.services.task_store import TaskStore
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -17,13 +22,22 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 Store = Annotated[TaskStore, Depends(get_task_store)]
 
 
-@router.get("", response_model=list[TaskResponse])
+@router.get("", response_model=TaskListResponse)
 async def list_tasks(
     store: Store,
     status_filter: TaskStatus | None = None,
-) -> list[TaskResponse]:
-    """List all tasks, optionally filtered by status."""
-    return store.list_tasks(status=status_filter)
+    q: str | None = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> TaskListResponse:
+    """List tasks with optional filtering, search, and pagination."""
+    items, total = store.list_tasks(
+        status=status_filter,
+        query=q,
+        skip=skip,
+        limit=limit,
+    )
+    return TaskListResponse(items=items, total=total, skip=skip, limit=limit)
 
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
