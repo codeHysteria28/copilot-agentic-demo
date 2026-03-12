@@ -32,7 +32,10 @@ class TaskStore:
             tasks = [t for t in tasks if normalized_query in t.title.lower()]
 
         total = len(tasks)
-        paginated_tasks = tasks[skip : skip + limit]
+        if skip >= total:
+            paginated_tasks: list[TaskResponse] = []
+        else:
+            paginated_tasks = tasks[skip : skip + limit]
         logger.info(
             "Listed %d task(s) (total=%d, filter=%s, query=%s, skip=%d, limit=%d)",
             len(paginated_tasks),

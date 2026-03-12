@@ -124,8 +124,8 @@ async def test_list_tasks_search_by_title(client: httpx.AsyncClient) -> None:
 
 async def test_list_tasks_pagination(client: httpx.AsyncClient) -> None:
     """Pagination returns the requested slice and full filtered total."""
-    for index in range(10):
-        await client.post("/tasks", json={"title": f"Task {index}"})
+    for task_number in range(10):
+        await client.post("/tasks", json={"title": f"Task {task_number}"})
 
     response = await client.get("/tasks", params={"skip": 0, "limit": 5})
     body = response.json()
